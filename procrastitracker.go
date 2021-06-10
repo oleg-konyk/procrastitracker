@@ -1,6 +1,7 @@
 package procrastitracker
 
 import (
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -8,25 +9,40 @@ import (
 	"strings"
 )
 
-var blockedList = []string{
-	"youtube.com",
+//var blockedList = []string{
+//}
+
+var blockedList []string
+
+func Block(url string) {
+	blockedList = append(blockedList, url)
 }
 
-func isBlocked(url *url.URL) bool {
+func IsBlocked(url *url.URL) bool {
 	for _, val := range blockedList {
 		if strings.Contains(url.Host, val) {
 			return true
 		}
 	}
-
 	return false
 }
+
+//type BList struct {}
 
 func StartWebProxy() {
 	log.Printf("web proxy started")
 	handler := func(w http.ResponseWriter, r *http.Request) {
+		// https://google.com
 		destination := r.URL
 		log.Printf("proxying %v", destination)
+
+		// do blocking here
+		if IsBlocked(destination) {
+			w.WriteHeader(http.StatusForbidden)
+			fmt.Fprintf(w, "%s is blocked -- reported to arundel", destination)
+			return
+		}
+
 		gres, err := http.Get(destination.String())
 		if err != nil {
 			log.Fatal(err)
@@ -47,8 +63,5 @@ func StartWebProxy() {
 
 	http.HandleFunc("/", handler)
 	log.Fatal(http.ListenAndServe(":7070", nil))
-}
-
-func ConstructDestination(u *url.URL) (string, error) {
-	return "https://www.google.com", nil
+	// create a new blockedList, return that
 }

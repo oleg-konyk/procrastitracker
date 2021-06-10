@@ -1,4 +1,4 @@
-package procrastitracker
+package procrastitracker_test
 
 import (
 	"fmt"
@@ -7,26 +7,13 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"testing"
+
+	"procrastitracker"
 )
-
-func TestConstructDestination(t *testing.T) {
-
-	u, _ := url.Parse("http://localhost:7070/google.com")
-
-	out, err := ConstructDestination(u)
-
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if out != "https://www.google.com" {
-		t.Fail()
-	}
-}
 
 func TestCanMakeRequestViaProxy(t *testing.T) {
 	t.Parallel()
-	go StartWebProxy()
+	go procrastitracker.StartWebProxy()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "hello world")
@@ -57,23 +44,74 @@ func TestCanMakeRequestViaProxy(t *testing.T) {
 	}
 }
 
+func TestCannotMakeRequestBlockedSiteViaProxy(t *testing.T) {
+	t.Parallel()
+	go procrastitracker.StartWebProxy()
+
+	// test server
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Fatal("hit a blocked URL")
+	}))
+	transport := http.Transport{
+		Proxy: func(r *http.Request) (*url.URL, error) {
+			return url.Parse("http://localhost:7070")
+		},
+	}
+	client := http.Client{
+		Transport: &transport,
+	}
+
+	res, err := client.Get(ts.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if res.StatusCode != http.StatusForbidden {
+		t.Fatalf("status code should be 403, got %d", res.StatusCode)
+	}
+}
 
 func TestBlockedDomainIsBlocked(t *testing.T) {
+	t.Parallel()
+
 	u, err := url.Parse("https://youtube.com/my-channel")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !isBlocked(u) {
+	if !procrastitracker.IsBlocked(u) {
 		t.Fail()
 	}
 }
 
 func TestAllowedDomainIsNotBlocked(t *testing.T) {
+	t.Parallel()
+
 	u, err := url.Parse("https://google.com/search")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if isBlocked(u) {
+	if procrastitracker.IsBlocked(u) {
 		t.Fail()
+	}
+}
+
+func TestAddingURLToBlocker(t *testing.T) {
+	t.Parallel()
+
+	testURL := "http://google.com/"
+	u, err := url.Parse(testURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// url is not blocked
+	if procrastitracker.IsBlocked(u) {
+		t.Errorf("%s should not be blocked", u)
+	}
+
+	procrastitracker.Block("google.com")
+
+	// url is blocked
+	if !procrastitracker.IsBlocked(u) {
+		t.Errorf("%s should be blocked", u)
 	}
 }
