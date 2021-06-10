@@ -56,3 +56,24 @@ func TestCanMakeRequestViaProxy(t *testing.T) {
 		t.Fatal(body)
 	}
 }
+
+
+func TestBlockedDomainIsBlocked(t *testing.T) {
+	u, err := url.Parse("https://youtube.com/my-channel")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !isBlocked(u) {
+		t.Fail()
+	}
+}
+
+func TestAllowedDomainIsNotBlocked(t *testing.T) {
+	u, err := url.Parse("https://google.com/search")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if isBlocked(u) {
+		t.Fail()
+	}
+}

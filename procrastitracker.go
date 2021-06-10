@@ -5,7 +5,22 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"strings"
 )
+
+var blockedList = []string{
+	"youtube.com",
+}
+
+func isBlocked(url *url.URL) bool {
+	for _, val := range blockedList {
+		if strings.Contains(url.Host, val) {
+			return true
+		}
+	}
+
+	return false
+}
 
 func StartWebProxy() {
 	log.Printf("web proxy started")
